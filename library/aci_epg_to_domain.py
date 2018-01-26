@@ -99,6 +99,12 @@ options:
     description:
     - The VM platform for VMM Domains.
     choices: [ microsoft, openstack, vmware ]
+  switching_mode:
+    description:
+    - Sets the switching mode for the EPG bound to a vmware VMM domain.
+    - Feature added with ACI 3.1
+    choices: [ native, AVE ]
+    default: native
 extends_documentation_fragment: aci
 '''
 
@@ -129,6 +135,7 @@ def main():
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         tenant=dict(type='str', aliases=['tenant_name']),
         vm_provider=dict(type='str', choices=['microsoft', 'openstack', 'vmware']),
+        switching_mode=dict(type='str', choices=['native', 'AVE']),
         method=dict(type='str', choices=['delete', 'get', 'post'], aliases=['action'], removed_in_version='2.6'),  # Deprecated starting from v2.6
     )
 
@@ -148,6 +155,7 @@ def main():
     domain = module.params['domain']
     domain_type = module.params['domain_type']
     vm_provider = module.params['vm_provider']
+    switching_mode = module.params['switching_mode']
     encap = module.params['encap']
     if encap is not None:
         if encap in range(1, 4097):
@@ -169,6 +177,9 @@ def main():
 
     if domain_type == 'phys' and vm_provider is not None:
         module.fail_json(msg="Domain type 'phys' cannot have a 'vm_provider'")
+
+    if vm_provider != 'vmware' and switching_mode is not None:
+        module.fail_json(msg="'switching_mode' only valid for 'vm_provider' of type 'vmware'")
 
     # Compile the full domain for URL building
     if domain_type == 'vmm':
@@ -220,6 +231,7 @@ def main():
                 netflowPref=netflow,
                 primaryEncap=primary_encap,
                 resImedcy=resolution_immediacy,
+                switchingMode=switching_mode,
             ),
         )
 
